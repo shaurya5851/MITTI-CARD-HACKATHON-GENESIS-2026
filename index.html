@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<!-- saved from url=(0049)https://pretty-sight.lovable.app/mitti/index.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mitti Card — Soil Health Report</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 22c4-2 6-6 6-10 4 0 8 2 10 6 3-1 6-3 8-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+      <circle cx="9" cy="9" r="2" fill="currentColor"></circle>
+    </svg>
+    <div>
+      <h1>Mitti Card</h1>
+      <p class="tagline">Soil health, from a photo</p>
+    </div>
+  </div>
+  <button id="historyToggle" class="ghost-btn" fdprocessedid="45v3g9">History</button>
+</header>
+
+<div class="status-bar" id="statusBar">
+  <span class="status-dot" id="statusDot"></span>
+  <span id="statusText">Online — reports save to the field server</span>
+  <label class="sim-toggle">
+    <input type="checkbox" id="simOffline">
+    Simulate low connectivity
+  </label>
+</div>
+
+<main id="mainView">
+
+  <!-- STEP 1: PHOTO -->
+  <section class="card step" id="step1" data-step="1">
+    <p class="eyebrow">Step 1 of 3</p>
+    <h2>Photograph the soil</h2>
+    <p class="hint">Take a clear, well-lit photo of bare, slightly moist soil — no leaves or stones on top.</p>
+
+    <label class="photo-drop" id="photoDrop">
+      <input type="file" id="photoInput" accept="image/*" capture="environment" hidden="">
+      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="12" width="40" height="28" rx="3" stroke="currentColor" stroke-width="2"></rect>
+        <circle cx="24" cy="26" r="8" stroke="currentColor" stroke-width="2"></circle>
+        <path d="M16 12l3-5h10l3 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+      <span id="photoLabel">Tap to take or choose a photo</span>
+      <img id="photoPreview" alt="Soil photo preview" hidden="">
+    </label>
+
+    <button class="primary-btn" id="toStep2" disabled="">Continue</button>
+  </section>
+
+  <!-- STEP 2: QUESTIONS -->
+  <section class="card step" id="step2" data-step="2" hidden="">
+    <p class="eyebrow">Step 2 of 3</p>
+    <h2>A few quick details</h2>
+
+    <fieldset class="chip-group">
+      <legend>Crop</legend>
+      <div class="chips" data-field="cropType">
+        <button type="button" class="chip">Wheat</button>
+        <button type="button" class="chip">Rice</button>
+        <button type="button" class="chip">Cotton</button>
+        <button type="button" class="chip">Groundnut</button>
+        <button type="button" class="chip">Maize</button>
+        <button type="button" class="chip">Pulses</button>
+        <button type="button" class="chip">Vegetables</button>
+      </div>
+      <input type="text" class="chip-other" data-field-other="cropType" placeholder="Other crop…">
+    </fieldset>
+
+    <fieldset class="chip-group">
+      <legend>Last fertilizer used</legend>
+      <div class="chips" data-field="lastFertilizer">
+        <button type="button" class="chip">Urea</button>
+        <button type="button" class="chip">DAP</button>
+        <button type="button" class="chip">Compost / FYM</button>
+        <button type="button" class="chip">None</button>
+      </div>
+    </fieldset>
+
+    <fieldset class="chip-group">
+      <legend>Irrigation type</legend>
+      <div class="chips" data-field="irrigationType">
+        <button type="button" class="chip">Drip</button>
+        <button type="button" class="chip">Flood / canal</button>
+        <button type="button" class="chip">Sprinkler</button>
+        <button type="button" class="chip">Rainfed</button>
+      </div>
+    </fieldset>
+
+    <div class="step-actions">
+      <button class="ghost-btn" id="backToStep1">Back</button>
+      <button class="primary-btn" id="toStep3">Generate report</button>
+    </div>
+  </section>
+
+  <!-- STEP 3: REPORT -->
+  <section class="card step" id="step3" data-step="3" hidden="">
+    <p class="eyebrow" id="reportEyebrow">Step 3 of 3</p>
+    <h2 id="reportHeading">Soil report</h2>
+
+    <div class="soil-chip-wrap">
+      <div class="soil-chip" id="soilChip"></div>
+      <div class="soil-chip-label">
+        <span class="soil-code" id="soilCode">—</span>
+        <span class="soil-name" id="soilName">—</span>
+      </div>
+    </div>
+
+    <p class="confidence" id="soilConfidence"></p>
+    <p class="explanation" id="soilExplanation"></p>
+
+    <div class="report-block">
+      <h3>Fertilizer guidance</h3>
+      <p id="fertilizerAdvice"></p>
+    </div>
+
+    <div class="report-block">
+      <h3>Crop suitability</h3>
+      <ul id="cropSuitability"></ul>
+    </div>
+
+    <div class="report-block">
+      <h3>Field tips</h3>
+      <ul id="tips"></ul>
+    </div>
+
+    <div class="step-actions">
+      <button class="ghost-btn" id="newReport">New report</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- HISTORY VIEW -->
+<main id="historyView" hidden="">
+  <div class="card">
+    <p class="eyebrow">Saved reports</p>
+    <h2>History</h2>
+    <div class="step-actions" style="margin-bottom: 1rem;">
+      <button class="ghost-btn" id="backFromHistory">Back</button>
+      <button class="primary-btn" id="syncNow">Sync queued reports</button>
+    </div>
+    <div id="historyList"></div>
+  </div>
+</main>
+
+<script src="./app.js.download"></script>
+
+
+<span id="PING_IFRAME_FORM_DETECTION" style="display: none;"></span></body></html>

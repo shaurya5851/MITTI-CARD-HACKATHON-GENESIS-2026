@@ -1,0 +1,303 @@
+/* ---------------------------------------------------------------
+   Mitti Card — design tokens
+   Palette drawn from real soil tones, not a generic "AI" palette.
+   Typography relies on system fonts on purpose: a tool that promises
+   to work with no signal shouldn't need the internet for its fonts.
+------------------------------------------------------------------*/
+:root {
+  --paper: #efe7d8;
+  --paper-raised: #e4d8bf;
+  --ink: #2b2318;
+  --ink-soft: #5a4d3a;
+  --soil-dark: #4a3728;
+  --clay: #a64b2a;
+  --clay-deep: #8a3b20;
+  --sprout: #55724a;
+  --sand: #c7a671;
+  --hairline: #b9a67e;
+  --white-chip: #fbf7ee;
+
+  --font-display: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+main, .topbar, .status-bar {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 1.1rem;
+}
+
+/* ---------------- Header ---------------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 1.4rem;
+  padding-bottom: 0.6rem;
+}
+.brand { display: flex; align-items: center; gap: 0.6rem; }
+.brand-mark { width: 30px; height: 30px; color: var(--sprout); flex-shrink: 0; }
+.brand h1 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  margin: 0;
+  color: var(--soil-dark);
+  letter-spacing: 0.01em;
+}
+.tagline { margin: 0; font-size: 0.75rem; color: var(--ink-soft); }
+
+.ghost-btn {
+  background: transparent;
+  border: 1px solid var(--hairline);
+  color: var(--soil-dark);
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.ghost-btn:hover { background: var(--paper-raised); }
+
+/* ---------------- Status bar ---------------- */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  padding-bottom: 0.8rem;
+  flex-wrap: wrap;
+}
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--sprout);
+  flex-shrink: 0;
+}
+.status-dot.offline { background: var(--clay); }
+.sim-toggle {
+  margin-left: auto;
+  display: flex; align-items: center; gap: 0.35rem;
+  font-size: 0.75rem;
+}
+
+/* ---------------- Cards / steps ---------------- */
+.card {
+  background: var(--white-chip);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.2rem 1.6rem;
+  margin: 0.8rem 0 2rem;
+  box-shadow: 0 1px 0 rgba(74, 55, 40, 0.06);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--clay);
+  margin: 0 0 0.3rem;
+}
+
+.card h2 {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  margin: 0 0 0.5rem;
+  color: var(--soil-dark);
+}
+
+.hint { color: var(--ink-soft); font-size: 0.92rem; margin-bottom: 1.1rem; }
+
+/* ---------------- Photo upload ---------------- */
+.photo-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 2px dashed var(--hairline);
+  border-radius: var(--radius);
+  padding: 2.2rem 1rem;
+  cursor: pointer;
+  color: var(--ink-soft);
+  text-align: center;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  min-height: 160px;
+  position: relative;
+  overflow: hidden;
+}
+.photo-drop:hover { border-color: var(--clay); background: var(--paper-raised); }
+.photo-drop svg { width: 40px; height: 40px; }
+#photoPreview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+.primary-btn {
+  width: 100%;
+  background: var(--clay);
+  color: var(--white-chip);
+  border: none;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 1.2rem;
+  font-family: var(--font-body);
+}
+.primary-btn:hover:not(:disabled) { background: var(--clay-deep); }
+.primary-btn:disabled { background: var(--sand); cursor: not-allowed; opacity: 0.7; }
+
+.step-actions {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 1.2rem;
+}
+.step-actions .primary-btn { margin-top: 0; }
+.step-actions .ghost-btn { flex-shrink: 0; }
+
+/* ---------------- Chip selectors ---------------- */
+.chip-group {
+  border: none;
+  padding: 0;
+  margin: 0 0 1.3rem;
+}
+.chip-group legend {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  padding: 0 0 0.5rem;
+}
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.chip {
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+  color: var(--ink);
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.87rem;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.chip.selected {
+  background: var(--sprout);
+  border-color: var(--sprout);
+  color: var(--white-chip);
+}
+.chip-other {
+  margin-top: 0.6rem;
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-size: 0.87rem;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* ---------------- Soil colour chip (signature element) ---------------- */
+.soil-chip-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.6rem 0 0.9rem;
+}
+.soil-chip {
+  width: 84px;
+  height: 84px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,0.15);
+  box-shadow: inset 0 0 0 4px rgba(255,255,255,0.35);
+  flex-shrink: 0;
+  background: var(--sand);
+}
+.soil-chip-label { display: flex; flex-direction: column; gap: 0.25rem; }
+.soil-code {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--clay-deep);
+  letter-spacing: 0.02em;
+}
+.soil-name {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--soil-dark);
+}
+
+.confidence {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  margin: 0 0 0.9rem;
+}
+.explanation { color: var(--ink); margin-bottom: 1.3rem; }
+
+.report-block { margin-bottom: 1.2rem; }
+.report-block h3 {
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  color: var(--soil-dark);
+  margin: 0 0 0.4rem;
+}
+.report-block ul { margin: 0; padding-left: 1.1rem; }
+.report-block li { margin-bottom: 0.35rem; }
+
+/* ---------------- History ---------------- */
+.history-item {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 0.8rem 0.9rem;
+  margin-bottom: 0.7rem;
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+.history-swatch {
+  width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+  border: 1px solid rgba(0,0,0,0.15);
+}
+.history-meta { flex: 1; }
+.history-meta strong { display: block; font-family: var(--font-display); color: var(--soil-dark); }
+.history-meta span { font-size: 0.78rem; color: var(--ink-soft); }
+.badge {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.badge.synced { background: rgba(85,114,74,0.15); color: var(--sprout); }
+.badge.pending { background: rgba(166,75,42,0.15); color: var(--clay-deep); }
+.empty-state { color: var(--ink-soft); font-size: 0.9rem; }
+
+/* ---------------- Focus & motion ---------------- */
+button:focus-visible, input:focus-visible, .photo-drop:focus-within {
+  outline: 2px solid var(--clay);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}

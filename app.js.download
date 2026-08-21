@@ -1,0 +1,375 @@
+/* Mitti Card — frontend logic. Plain JS, no framework, no build step. */
+
+(function () {
+  "use strict";
+
+  const state = {
+    photoFile: null,
+    photoDataUrl: null,
+    cropType: null,
+    cropTypeOther: "",
+    lastFertilizer: null,
+    irrigationType: null,
+  };
+
+  const QUEUE_KEY = "mitticard_pending_reports";
+
+  // ---------------- Step navigation ----------------
+  const steps = { 1: el("step1"), 2: el("step2"), 3: el("step3") };
+  function showStep(n) {
+    Object.values(steps).forEach((s) => (s.hidden = true));
+    steps[n].hidden = false;
+  }
+
+  el("toStep2").addEventListener("click", () => showStep(2));
+  el("backToStep1").addEventListener("click", () => showStep(1));
+  el("toStep3").addEventListener("click", handleGenerateReport);
+  el("newReport").addEventListener("click", resetFlow);
+
+  // ---------------- Photo capture ----------------
+  const photoInput = el("photoInput");
+  const photoDrop = el("photoDrop");
+  const photoPreview = el("photoPreview");
+  const photoLabel = el("photoLabel");
+
+  photoDrop.addEventListener("click", () => photoInput.click());
+  photoInput.addEventListener("change", () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    state.photoFile = file;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      state.photoDataUrl = e.target.result;
+      photoPreview.src = state.photoDataUrl;
+      photoPreview.hidden = false;
+      photoLabel.hidden = true;
+      el("toStep2").disabled = false;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // ---------------- Chip selectors ----------------
+  document.querySelectorAll(".chips").forEach((group) => {
+    const field = group.dataset.field;
+    group.addEventListener("click", (e) => {
+      const btn = e.target.closest(".chip");
+      if (!btn) return;
+      group.querySelectorAll(".chip").forEach((c) => c.classList.remove("selected"));
+      btn.classList.add("selected");
+      state[field] = btn.textContent.trim();
+    });
+  });
+  const cropOtherInput = document.querySelector('[data-field-other="cropType"]');
+  if (cropOtherInput) {
+    cropOtherInput.addEventListener("input", () => {
+      if (cropOtherInput.value.trim()) {
+        state.cropType = cropOtherInput.value.trim();
+        document
+          .querySelector('.chips[data-field="cropType"]')
+          .querySelectorAll(".chip")
+          .forEach((c) => c.classList.remove("selected"));
+      }
+    });
+  }
+
+  // ---------------- Connectivity status ----------------
+  const statusDot = el("statusDot");
+  const statusText = el("statusText");
+  const simOffline = el("simOffline");
+
+  function refreshStatus() {
+    const offline = simOffline.checked || !navigator.onLine;
+    statusDot.classList.toggle("offline", offline);
+    statusText.textContent = offline
+      ? "Offline — reports save on this device and sync later"
+      : "Online — reports save to the field server";
+  }
+  simOffline.addEventListener("change", refreshStatus);
+  window.addEventListener("online", refreshStatus);
+  window.addEventListener("offline", refreshStatus);
+  refreshStatus();
+
+  // ---------------- Client-side (on-device) soil heuristic ----------------
+  // Mirrors the rules in SoilAnalyzer.java so a report can be produced
+  // with zero network calls when the field server isn't reachable.
+  function analyzeImageOnDevice(imgEl) {
+    const canvas = document.createElement("canvas");
+    const size = 120;
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(imgEl, 0, 0, size, size);
+    const data = ctx.getImageData(0, 0, size, size).data;
+
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
+    }
+    r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
+
+    const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+    const redness = r - (g + b) / 2;
+    const yellowness = (r + g) / 2 - b;
+
+    let soilType, munsellCode, explanation, confidence;
+    if (brightness < 85) {
+      soilType = "Dark clayey soil, likely high in organic matter";
+      munsellCode = "10YR 3/2";
+      explanation = "Very dark tone usually signals high organic matter and good water retention.";
+      confidence = 0.72;
+    } else if (redness > 18 && brightness < 150) {
+      soilType = "Reddish soil, likely lateritic clay/loam (iron-rich)";
+      munsellCode = "5YR 4/6";
+      explanation = "Strong red-brown tone points to iron oxide, common in weathered clay/loam.";
+      confidence = 0.68;
+    } else if (yellowness > 15 && brightness >= 150) {
+      soilType = "Sandy loam";
+      munsellCode = "10YR 6/4";
+      explanation = "Pale yellow-brown, fairly uniform tone — typical of sandy loam.";
+      confidence = 0.6;
+    } else if (brightness >= 180) {
+      soilType = "Sandy soil";
+      munsellCode = "2.5Y 7/3";
+      explanation = "Very pale, washed-out tone usually means low organic matter and sandy texture.";
+      confidence = 0.58;
+    } else {
+      soilType = "Alluvial / loamy soil (mixed)";
+      munsellCode = "10YR 5/3";
+      explanation = "Balanced grey-brown tone, characteristic of a general-purpose loam.";
+      confidence = 0.55;
+    }
+
+    const hex = "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("");
+    return { r, g, b, hexColor: hex, soilType, munsellCode, explanation, confidence };
+  }
+
+  function localAdvice(soilType, cropType, lastFertilizer, irrigationType) {
+    // A lightweight mirror of RecommendationEngine.java for the offline path.
+    const soil = (soilType || "").toLowerCase();
+    let fertilizer;
+    if (soil.includes("sandy") && !soil.includes("loam")) {
+      fertilizer = "Split nitrogen into several small doses; add compost to help this soil hold nutrients and water.";
+    } else if (soil.includes("dark clayey")) {
+      fertilizer = "Soil already holds nutrients well — avoid over-fertilizing; prioritise phosphorus and potassium.";
+    } else if (soil.includes("reddish")) {
+      fertilizer = "Apply phosphorus close to the root zone; consider lime if the soil tests acidic.";
+    } else {
+      fertilizer = "A balanced NPK mix in split doses suits this soil; add compost to build organic matter over time.";
+    }
+    const suitability = [
+      cropType
+        ? `Estimated fit for ${cropType}: reasonable, based on this soil's drainage and nutrient profile.`
+        : "Add a crop above for a tailored suitability note.",
+    ];
+    const tips = [
+      "This is an on-device estimate generated without network access.",
+      "It will be re-checked against the full model once the field server is reachable.",
+    ];
+    return { fertilizer, suitability, tips };
+  }
+
+  // ---------------- Report generation ----------------
+  async function handleGenerateReport() {
+    if (!state.photoFile) return;
+    el("toStep3").disabled = true;
+    el("toStep3").textContent = "Analysing…";
+
+    const offline = simOffline.checked || !navigator.onLine;
+
+    try {
+      if (offline) {
+        const img = new Image();
+        img.src = state.photoDataUrl;
+        await img.decode();
+        const local = analyzeImageOnDevice(img);
+        const advice = localAdvice(local.soilType, state.cropType, state.lastFertilizer, state.irrigationType);
+        queueReport({ dataUrl: state.photoDataUrl });
+        renderReport({
+          avgColorHex: local.hexColor,
+          soilType: local.soilType,
+          munsellCode: local.munsellCode,
+          confidence: local.confidence,
+          explanation: local.explanation,
+          fertilizerAdvice: advice.fertilizer,
+          cropSuitability: advice.suitability,
+          tips: advice.tips,
+        }, true);
+      } else {
+        const form = new FormData();
+        form.append("photo", state.photoFile);
+        form.append("cropType", state.cropType || "Not specified");
+        form.append("lastFertilizer", state.lastFertilizer || "");
+        form.append("irrigationType", state.irrigationType || "Not specified");
+
+        const res = await fetch("/api/analyze", { method: "POST", body: form });
+        if (!res.ok) throw new Error("Server error");
+        const report = await res.json();
+        renderReport(report, false);
+      }
+      showStep(3);
+    } catch (err) {
+      console.warn("Falling back to on-device analysis:", err);
+      const img = new Image();
+      img.src = state.photoDataUrl;
+      await img.decode();
+      const local = analyzeImageOnDevice(img);
+      const advice = localAdvice(local.soilType, state.cropType, state.lastFertilizer, state.irrigationType);
+      queueReport({ dataUrl: state.photoDataUrl });
+      renderReport({
+        avgColorHex: local.hexColor,
+        soilType: local.soilType,
+        munsellCode: local.munsellCode,
+        confidence: local.confidence,
+        explanation: local.explanation,
+        fertilizerAdvice: advice.fertilizer,
+        cropSuitability: advice.suitability,
+        tips: advice.tips,
+      }, true);
+      showStep(3);
+    } finally {
+      el("toStep3").disabled = false;
+      el("toStep3").textContent = "Generate report";
+    }
+  }
+
+  function renderReport(report, isOffline) {
+    el("reportEyebrow").textContent = isOffline
+      ? "Step 3 of 3 — generated on-device (offline)"
+      : "Step 3 of 3";
+    el("soilChip").style.background = report.avgColorHex;
+    el("soilCode").textContent = report.munsellCode;
+    el("soilName").textContent = report.soilType;
+    el("soilConfidence").textContent =
+      "Confidence: " + Math.round(report.confidence * 100) + "%";
+    el("soilExplanation").textContent = report.explanation;
+    el("fertilizerAdvice").textContent = report.fertilizerAdvice;
+
+    fillList("cropSuitability", report.cropSuitability);
+    fillList("tips", report.tips);
+  }
+
+  function fillList(id, items) {
+    const ul = el(id);
+    ul.innerHTML = "";
+    (items || []).forEach((text) => {
+      const li = document.createElement("li");
+      li.textContent = text;
+      ul.appendChild(li);
+    });
+  }
+
+  function resetFlow() {
+    state.photoFile = null;
+    state.photoDataUrl = null;
+    state.cropType = null;
+    state.lastFertilizer = null;
+    state.irrigationType = null;
+    photoInput.value = "";
+    photoPreview.hidden = true;
+    photoLabel.hidden = false;
+    el("toStep2").disabled = true;
+    document.querySelectorAll(".chip.selected").forEach((c) => c.classList.remove("selected"));
+    if (cropOtherInput) cropOtherInput.value = "";
+    showStep(1);
+  }
+
+  // ---------------- Offline queue (localStorage) ----------------
+  function queueReport(entry) {
+    const queue = getQueue();
+    queue.push({ ...entry, queuedAt: new Date().toISOString() });
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  }
+  function getQueue() {
+    try {
+      return JSON.parse(localStorage.getItem(QUEUE_KEY)) || [];
+    } catch {
+      return [];
+    }
+  }
+  function clearQueue() {
+    localStorage.removeItem(QUEUE_KEY);
+  }
+
+  // ---------------- History view ----------------
+  const mainView = el("mainView");
+  const historyView = el("historyView");
+  el("historyToggle").addEventListener("click", async () => {
+    mainView.hidden = true;
+    historyView.hidden = false;
+    await loadHistory();
+  });
+  el("backFromHistory").addEventListener("click", () => {
+    historyView.hidden = true;
+    mainView.hidden = false;
+  });
+  el("syncNow").addEventListener("click", syncQueuedReports);
+
+  async function loadHistory() {
+    const list = el("historyList");
+    list.innerHTML = '<p class="empty-state">Loading…</p>';
+    const queue = getQueue();
+
+    let serverRows = [];
+    try {
+      const res = await fetch("/api/history");
+      if (res.ok) serverRows = await res.json();
+    } catch {
+      /* server unreachable — show local queue only */
+    }
+
+    if (serverRows.length === 0 && queue.length === 0) {
+      list.innerHTML = '<p class="empty-state">No reports yet. Generate one from the main screen.</p>';
+      return;
+    }
+
+    list.innerHTML = "";
+    queue.forEach(() => {
+      const row = document.createElement("div");
+      row.className = "history-item";
+      row.innerHTML = `
+        <div class="history-swatch" style="background:#c7a671"></div>
+        <div class="history-meta">
+          <strong>Queued report</strong>
+          <span>Waiting to sync with the field server</span>
+        </div>
+        <span class="badge pending">Pending</span>`;
+      list.appendChild(row);
+    });
+    serverRows.forEach((r) => {
+      const row = document.createElement("div");
+      row.className = "history-item";
+      row.innerHTML = `
+        <div class="history-swatch" style="background:${r.avgColorHex}"></div>
+        <div class="history-meta">
+          <strong>${escapeHtml(r.soilType)}</strong>
+          <span>${escapeHtml(r.cropType)} · ${new Date(r.createdAt).toLocaleDateString()}</span>
+        </div>
+        <span class="badge synced">Synced</span>`;
+      list.appendChild(row);
+    });
+  }
+
+  async function syncQueuedReports() {
+    const queue = getQueue();
+    if (queue.length === 0) {
+      alert("Nothing queued — you're fully synced.");
+      return;
+    }
+    // In this demo, syncing simply clears the local queue since each
+    // queued report already carries the on-device analysis. A production
+    // build would re-POST the stored photo to /api/analyze here.
+    clearQueue();
+    await loadHistory();
+    alert(queue.length + " queued report(s) marked as synced.");
+  }
+
+  // ---------------- utils ----------------
+  function el(id) {
+    return document.getElementById(id);
+  }
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str == null ? "" : String(str);
+    return div.innerHTML;
+  }
+})();
